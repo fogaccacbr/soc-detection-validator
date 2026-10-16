@@ -1,0 +1,5 @@
+.env
+.venv/
+*.crt
+example_alert.json
+__pycache__/
