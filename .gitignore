@@ -3,3 +3,4 @@
 *.crt
 example_alert.json
 __pycache__/
+report.md

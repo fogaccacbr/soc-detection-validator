@@ -65,6 +65,43 @@ def run_scenario(scenario):
     return {"scenario": scenario, "status": "DETECTED", "delay": delay}
 
 
+def write_report(results):
+    """Write the results to a Markdown report file."""
+    now = datetime.now(timezone.utc)
+    detected = sum(1 for r in results if r["status"] == "DETECTED")
+    total = len(results)
+
+    lines = []
+    lines.append("# Detection Validation Report")
+    lines.append("")
+    lines.append(f"Generated: {now.strftime('%Y-%m-%d %H:%M UTC')}")
+    lines.append("")
+    lines.append(f"**Coverage: {detected}/{total} techniques detected**")
+    lines.append("")
+    lines.append("| Technique | Scenario | Rule | Result | Time to detect |")
+    lines.append("|---|---|---|---|---|")
+
+    for r in results:
+        s = r["scenario"]
+        if r["status"] == "DETECTED":
+            result_cell = "Detected"
+            delay = f"{r['delay']:.0f}s"
+        elif r["status"] == "NOT DETECTED":
+            result_cell = "Not detected"
+            delay = "—"
+        else:
+            result_cell = "Attack failed"
+            delay = "—"
+        lines.append(f"| {s['id']} | {s['name']} | {s['rule']} | {result_cell} | {delay} |")
+
+    report = "\n".join(lines)
+
+    with open("report.md", "w") as f:
+        f.write(report)
+
+    print("\n[*] Report written to report.md")
+
+
 def main():
     with open("scenarios.yaml") as f:
         scenarios = yaml.safe_load(f)
@@ -77,6 +114,8 @@ def main():
     for r in results:
         delay = f"{r['delay']:.0f}s" if r["delay"] is not None else "-"
         print(f"{r['scenario']['id']:<12} {r['status']:<14} {delay}")
+
+    write_report(results)
 
 
 if __name__ == "__main__":
