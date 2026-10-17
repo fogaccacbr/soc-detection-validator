@@ -1,4 +1,4 @@
-# Each scenario describes an attack and the alert that he must generate.
+# Each scenario describes an attack and the alert that it must generate.
 - id: T1110.001
   name: SMB brute-force
   attack: "nxc smb 192.168.158.20 -u 'Win10 Lab' -p /home/user/wordlists/passwords.txt"
