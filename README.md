@@ -4,7 +4,7 @@ A small Python tool that automatically **re-runs the attacks from my [SOC home l
 
 It turns a manual, error-prone routine — launch the attack, switch to Kibana, search for the alert, eyeball the result — into one command that produces a repeatable, timestamped report. The idea is the same one behind *detection validation* / *breach-and-attack simulation* used by purple teams: a rule that was built once is not a rule you can trust forever.
 
-![Validation run: 3 of 3 techniques detected](images/summary.png)
+![Validation run: 4 of 4 techniques detected](images/summary.png)
 
 > Companion project to **[soc-home-lab](https://github.com/fogaccacbr/soc-home-lab)**, which builds the SIEM, the endpoint and the detection rules this tool exercises.
 
@@ -91,26 +91,42 @@ The `success_signal` check is what makes the report trustworthy — it separates
 | **Not detected** | attack ran but no alert — a real detection gap |
 | **Attack failed** | the attack itself didn't run — fix the test, not the rule |
 
-## Example report
+## Gap found, closed and proved
+
+This is the loop the tool was built for.
+
+**Before.** The lab already performed scheduled-task persistence (T1053.005), but no rule alerted on it. The validator made that blind spot explicit instead of letting it hide:
+
+| Technique | Scenario | Rule | Result |
+|---|---|---|---|
+| T1110.001 | SMB brute-force | Brute-force SMB success | ✅ Detected |
+| T1039 | Sensitive file read (honey file) | Sensitive file access through SMB | ✅ Detected |
+| T1039-mass | Mass file scanning via SMB | Mass file scanning via SMB | ✅ Detected |
+| T1053.005 | Scheduled task persistence | *(no rule)* | ❌ Not detected |
+
+**Fix.** I wrote a KQL rule in Kibana that catches the task from two independent sources (full logic in [soc-home-lab/detections](https://github.com/fogaccacbr/soc-home-lab/blob/main/detections/README.md#4-scheduled-task-created-possible-persistence)):
+
+```kql
+event.code:"4698" or
+(process.name:"schtasks.exe" and process.args:("/create" or "/Create" or "-create"))
+```
+
+and added a 4th scenario that creates the task remotely over SMB with NetExec, then deletes it in `cleanup` so every run starts from a clean host.
+
+**After.**
 
 ```markdown
-# Detection Validation Report
-
-Generated: 2026-10-17 15:29 UTC
-
-**Coverage: 3/3 techniques detected**
+**Coverage: 4/4 techniques detected**
 
 | Technique | Scenario | Rule | Result | Time to detect |
 |---|---|---|---|---|
-| T1110.001 | SMB brute-force | Brute-force SMB success | ✅ Detected | 49s |
-| T1039 | Sensitive file read (honey file) | Sensitive file access through SMB | ✅ Detected | 48s |
-| T1039-mass | Mass file scanning via SMB | Mass file scanning via SMB | ✅ Detected | 48s |
-| T1053.005 | Scheduled task persistence | *(no rule yet)* | ❌ Not detected | — |
+| T1110.001 | SMB brute-force | Brute-force SMB success | ✅ Detected | 30s |
+| T1039 | Sensitive file read (honey file) | Sensitive file access through SMB | ✅ Detected | 58s |
+| T1039-mass | Mass file scanning via SMB | Mass file scanning via SMB | ✅ Detected | 58s |
+| T1053.005 | Scheduled task persistence | Scheduled task created (possible persistence) | ✅ Detected | 31s |
 ```
 
-![Rendered Markdown report in the terminal](images/report.png)
-
-The `T1053.005` row is intentional: the lab performs the attack but has no rule for it yet. The validator makes that gap visible instead of letting it hide — closing it is on the roadmap below.
+![Validation run: 4 of 4 techniques detected](images/summary.png)
 
 ## Setup
 
@@ -154,12 +170,16 @@ It came together incrementally, each step verified against the live lab before m
 
   ![Mass-scan fix: wiping the download dir each run](images/cache-fix.png)
 
+- **The success signal has to match the tool's real output** → the first run of the scheduled-task scenario reported `ATTACK FAILED`, not `NOT DETECTED`. The task had been created; the configured `success_signal` simply didn't match what NetExec printed. Setting it to `SUCCESS:` fixed it. This is exactly the case the three-outcome design exists for: the report blamed the test, not the rule, so I fixed the test.
+
+  ![First scheduled-task run: ATTACK FAILED from a signal mismatch](images/signal-mismatch.png)
+
 ## Limitations & roadmap
 
 - **Duplicate alerts.** The brute-force and mass-scanning rules each raise many alerts per incident. The validator only needs one, so it reports correctly, but the underlying rules want **alert suppression** (grouped by `source.ip`) — a tuning step this tool is well placed to measure before/after.
 - **Timing is coarse.** Rules run on a schedule, so time-to-detect depends on where in the cycle the attack lands. A single run isn't a benchmark; averaging several would be.
 - **Sequential and slow.** Each scenario waits for its own alert. Running all attacks first, then polling, would cut total runtime.
-- [ ] Write the `T1053.005` scheduled-task rule and add the 4th scenario — the headline "found a gap, closed it, proved it" demo.
+- [x] Write the `T1053.005` scheduled-task rule and add the 4th scenario — see [Gap found, closed and proved](#gap-found-closed-and-proved).
 - [ ] Record results into an Elasticsearch index and build a Kibana coverage dashboard over time.
 - [ ] Emit an [ATT&CK Navigator](https://mitre-attack.github.io/attack-navigator/) layer from the results.
 
