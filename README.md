@@ -170,9 +170,9 @@ It came together incrementally, each step verified against the live lab before m
 
   ![Mass-scan fix: wiping the download dir each run](images/cache-fix.png)
 
-- **The success signal has to match the tool's real output** → the first run of the scheduled-task scenario reported `ATTACK FAILED`, not `NOT DETECTED`. The task had been created; the configured `success_signal` simply didn't match what NetExec printed. Setting it to `SUCCESS:` fixed it. This is exactly the case the three-outcome design exists for: the report blamed the test, not the rule, so I fixed the test.
+- **A half-configured scenario must not look like a missed detection** → the first run with the new scheduled-task scenario reported `ATTACK FAILED`, because the scenario wasn't fully configured in `scenarios.yaml` yet. Once it was set up properly, the next run reported `DETECTED`. This is what the three-outcome design is for: the report blamed the test, not the rule, so I fixed the test.
 
-  ![First scheduled-task run: ATTACK FAILED from a signal mismatch](images/signal-mismatch.png)
+  ![First scheduled-task run: ATTACK FAILED before the scenario was fully configured](images/signal-mismatch.png)
 
 ## Limitations & roadmap
 
